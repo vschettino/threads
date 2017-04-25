@@ -2,17 +2,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define SIZE 10   // Size by SIZE matrices
+#define SIZE 100   // Size by SIZE matrices
 int num_thrd;   // number of threads
 
 int A[SIZE][SIZE], B[SIZE][SIZE], C[SIZE][SIZE];
 
 // initialize a matrix
-void init_matrix(int m[SIZE][SIZE])
+void init_matrix(int m[SIZE][SIZE], FILE *fp )
 {
   int i, j, val = 0;
   for (i = 0; i < SIZE; i++)
     for (j = 0; j < SIZE; j++)
+    fscanf(fp, "%d", &val);
       m[i][j] = val++;
 }
 
@@ -27,15 +28,14 @@ void print_matrix(int m[SIZE][SIZE])
   }
 }
 
-// thread function: taking "slice" as its argument
 void* multiply(void* slice)
 {
-  int s = (int)slice;   // retrive the slice info
-  int from = (s * SIZE)/num_thrd; // note that this 'slicing' works fine
-  int to = ((s+1) * SIZE)/num_thrd; // even if SIZE is not divisible by num_thrd
+  int s = (int)slice;
+  int from = (s * SIZE)/num_thrd;
+  int to = ((s+1) * SIZE)/num_thrd;
   int i,j,k;
 
-  printf("computing slice %d (from row %d to %d)\n", s, from, to-1);
+  printf("multiplicando %d (de %d ate %d)\n", s, from, to-1);
   for (i = from; i < to; i++)
   {
     for (j = 0; j < SIZE; j++)
@@ -51,18 +51,19 @@ void* multiply(void* slice)
 
 int main(int argc, char* argv[])
 {
-  pthread_t* thread;  // pointer to a group of threads
+  pthread_t* thread;
   int i;
+  FILE *fp1, *fp2;
 
   num_thrd = atoi(argv[1]);
-  init_matrix(A);
-  init_matrix(B);
+  fp1 = fopen(argv[2], "r");
+  fp2 = fopen(argv[3], "r");
+  init_matrix(A, fp1);
+  init_matrix(B, fp2);
   thread = (pthread_t*) malloc(num_thrd*sizeof(pthread_t));
 
-  // this for loop not entered if threadd number is specified as 1
   for (i = 1; i < num_thrd; i++)
   {
-    // creates each thread working on its own slice of i
     if (pthread_create (&thread[i], NULL, multiply, (void*)i) != 0 )
     {
       perror("Can't create thread");
@@ -71,12 +72,7 @@ int main(int argc, char* argv[])
     }
   }
 
-  // main thread works on slice 0
-  // so everybody is busy
-  // main thread does everything if threadd number is specified as 1
-  multiply(0);
-
-  // main thead waiting for other thread to complete
+  multiply(0);//"segurando" a main thread
   for (i = 1; i < num_thrd; i++)
  pthread_join (thread[i], NULL);
 
